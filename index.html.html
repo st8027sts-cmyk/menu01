@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>외식 프랜차이즈 메뉴 관리 시스템</title>
+    
+    <!-- PWA 및 모바일/바탕화면 앱 아이콘 설정 -->
+    <meta name="theme-color" content="#E11D48">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/1046/1046784.png" type="image/png">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1046/1046784.png">
+    <link rel="manifest" href='data:application/manifest+json;utf-8,%7B%22name%22%3A%22%ED%94%84%EB%9E%9C%EC%B0%A8%EC%9D%B4%EC%A6%88%20%EB%A9%94%EB%89%B4%EA%B4%80%EB%A6%AC%22%2C%22short_name%22%3A%22%EB%A9%94%EB%89%B4%EA%B4%80%EB%A6%AC%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f8fafc%22%2C%22theme_color%22%3A%22%23E11D48%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F1046%2F1046784.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Pretendard -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Pretendard Variable"', 'Pretendard', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: '#E11D48', // Rose 600 - 프랜차이즈 느낌의 메인 컬러
+                        dark: '#1E293B',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; rounded: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* 모달 트랜지션 */
+        .modal-enter { opacity: 0; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s ease-out; }
+        .modal-leave { opacity: 1; transform: scale(1); }
+        .modal-leave-active { opacity: 0; transform: scale(0.95); transition: all 0.2s ease-in; }
+        
+        /* 리스트 아이템 애니메이션 */
+        .list-item-move { transition: transform 0.3s ease; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white border-b border-slate-200 shadow-sm z-10 flex-shrink-0">
+        <div class="px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-brand text-white rounded-lg flex items-center justify-center shadow-md">
+                    <i class="ph ph-storefront text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">통합 메뉴 관리 시스템</h1>
+                    <p class="text-xs text-slate-500">Global Franchise Group</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="installBtn" class="px-4 py-2 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition flex items-center gap-2 shadow-sm">
+                    <i class="ph ph-desktop text-lg"></i> 앱 설치
+                </button>
+                <button onclick="openModal()" class="px-4 py-2 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-rose-700 transition flex items-center gap-2 shadow-sm">
+                    <i class="ph ph-plus-circle text-lg"></i> 신규 메뉴 등록
+                </button>
+                <div class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 border border-slate-300">
+                    <i class="ph ph-user text-lg"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col overflow-hidden">
+        
+        <!-- 브랜드 탭 -->
+        <div class="bg-white px-6 pt-4 border-b border-slate-200 flex-shrink-0">
+            <div class="flex space-x-2 overflow-x-auto pb-[-1px]" id="brandTabs">
+                <!-- JS에서 렌더링 됨 -->
+            </div>
+        </div>
+
+        <!-- 카테고리 탭 -->
+        <div class="px-6 py-4 flex-shrink-0">
+            <div class="flex p-1 space-x-1 bg-slate-200/60 rounded-xl max-w-fit" id="categoryTabs">
+                <!-- JS에서 렌더링 됨 -->
+            </div>
+        </div>
+
+        <!-- 리스트 헤더 및 목록 -->
+        <div class="flex-1 overflow-y-auto px-6 pb-10">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <!-- 테이블 헤더 느낌의 가이드라인 -->
+                <div class="flex items-center px-6 py-3 border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <div class="w-20 text-center">순서</div>
+                    <div class="w-32 pl-2">이미지</div>
+                    <div class="flex-1">메뉴 정보</div>
+                    <div class="w-32 text-right">판매가</div>
+                    <div class="w-32 text-center ml-4">관리</div>
+                </div>
+                
+                <!-- 리스트 컨테이너 -->
+                <div id="menuList" class="divide-y divide-slate-100">
+                    <!-- JS에서 렌더링 됨 -->
+                </div>
+                
+                <!-- 빈 상태 표시 -->
+                <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-slate-400">
+                    <i class="ph ph-hamburger text-6xl mb-4 text-slate-300"></i>
+                    <p class="text-lg font-medium text-slate-500">등록된 메뉴가 없습니다.</p>
+                    <p class="text-sm mt-1">새로운 메뉴를 등록해주세요.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="menuModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div class="relative bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:max-w-2xl w-full" role="dialog">
+                
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-lg leading-6 font-bold text-slate-900" id="modalTitle">메뉴 수정</h3>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition">
+                        <i class="ph ph-x text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="px-6 py-6">
+                    <form id="menuForm" class="space-y-6">
+                        <input type="hidden" id="menuId">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- 이미지 영역 -->
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">메뉴 이미지</label>
+                                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-xl hover:border-brand transition cursor-pointer relative overflow-hidden group" id="imageUploadArea" onclick="document.getElementById('menuImageFile').click()">
+                                    <div class="space-y-1 text-center relative z-10" id="imagePlaceholder">
+                                        <i class="ph ph-image text-3xl text-slate-400 mx-auto"></i>
+                                        <div class="flex flex-col text-sm text-slate-600 mt-2 gap-1">
+                                            <span class="relative rounded-md font-medium text-brand hover:text-rose-500 focus-within:outline-none">클릭하여 파일 업로드</span>
+                                            <span class="text-xs text-slate-400">PNG, JPG, GIF, WEBP (Max 5MB)</span>
+                                        </div>
+                                    </div>
+                                    <!-- 파일 입력 (숨김) -->
+                                    <input type="file" id="menuImageFile" class="hidden" accept="image/png, image/jpeg, image/gif, image/webp">
+                                    
+                                    <!-- 이미지 미리보기 -->
+                                    <img id="imagePreview" src="" class="absolute inset-0 w-full h-full object-cover hidden" alt="미리보기">
+                                    <!-- 호버시 오버레이 -->
+                                    <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition hidden" id="imageOverlay">
+                                        <span class="text-white text-sm font-medium"><i class="ph ph-pencil-simple"></i> 이미지 변경</span>
+                                    </div>
+                                </div>
+                                <div class="relative mt-2">
+                                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <i class="ph ph-link text-slate-400"></i>
+                                    </div>
+                                    <input type="text" id="menuImage" class="block w-full text-sm border-slate-300 rounded-lg shadow-sm focus:ring-brand focus:border-brand pl-9 pr-3 py-2 bg-slate-50 border" placeholder="또는 이미지 URL 직접 입력">
+                                </div>
+                            </div>
+                            
+                            <!-- 텍스트 정보 영역 -->
+                            <div class="col-span-1 md:col-span-2 space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">메뉴명 <span class="text-brand">*</span></label>
+                                    <input type="text" id="menuName" required class="block w-full border-slate-300 rounded-lg shadow-sm focus:ring-brand focus:border-brand sm:text-sm px-4 py-2.5 border bg-white" placeholder="예: 더블 치즈버거 세트">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">판매가 (원) <span class="text-brand">*</span></label>
+                                    <input type="number" id="menuPrice" required min="0" step="100" class="block w-full border-slate-300 rounded-lg shadow-sm focus:ring-brand focus:border-brand sm:text-sm px-4 py-2.5 border bg-white" placeholder="예: 8500">
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">브랜드</label>
+                                        <select id="modalBrand" class="block w-full border-slate-300 rounded-lg shadow-sm focus:ring-brand focus:border-brand sm:text-sm px-4 py-2.5 border bg-white">
+                                            <!-- JS에서 채움 -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">카테고리</label>
+                                        <select id="modalCategory" class="block w-full border-slate-300 rounded-lg shadow-sm focus:ring-brand focus:border-brand sm:text-sm px-4 py-2.5 border bg-white">
+                                            <!-- JS에서 채움 -->
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">메뉴 설명</label>
+                            <textarea id="menuDesc" rows="3" class="block w-full border-slate-300 rounded-lg shadow-sm focus:ring-brand focus:border-brand sm:text-sm px-4 py-2.5 border bg-white resize-none" placeholder="고객에게 보여질 메뉴에 대한 맛깔나는 설명을 적어주세요."></textarea>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm">
+                        취소
+                    </button>
+                    <button type="button" onclick="saveMenu()" class="px-5 py-2 bg-brand border border-transparent rounded-lg text-sm font-medium text-white hover:bg-rose-700 transition shadow-sm shadow-rose-500/30">
+                        저장하기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 메시지용 Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 z-50">
+        <i class="ph ph-check-circle text-emerald-400 text-xl"></i>
+        <span id="toastMsg" class="font-medium text-sm">저장되었습니다.</span>
+    </div>
+
+    <!-- 앱 설치 안내 모달 -->
+    <div id="installGuideModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeInstallGuide()"></div>
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center">
+                <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="ph ph-desktop text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-900 mb-2">바탕화면 프로그램으로 설치</h3>
+                <p class="text-slate-600 text-sm mb-6 leading-relaxed">
+                    독립된 프로그램처럼 바탕화면에서 바로 실행하려면 아래 방법을 따라주세요.
+                </p>
+                <div class="bg-slate-50 p-4 rounded-xl text-left text-sm text-slate-700 space-y-3 mb-6 border border-slate-100">
+                    <p><b>PC (크롬/엣지 브라우저):</b></p>
+                    <ol class="list-decimal pl-5 space-y-1">
+                        <li>브라우저 우측 상단 메뉴 <i class="ph ph-dots-three-vertical inline"></i> 클릭</li>
+                        <li><b>[저장 및 공유]</b> ➔ <b>[바로가기 만들기...]</b> 클릭</li>
+                        <li><b>'창으로 열기'</b> 체크 후 <b>[만들기]</b> 클릭</li>
+                    </ol>
+                </div>
+                <button onclick="closeInstallGuide()" class="w-full py-3 bg-brand text-white rounded-xl font-bold hover:bg-rose-700 transition">
+                    확인했습니다
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 클라우드 연동 및 로직 스크립트 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase 초기화 설정
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- 1. 기초 데이터 및 상태 ---
+        let dbUser = null;
+        let menuData = []; // 실시간 클라우드에서 데이터를 불러옵니다.
+        
+        const brands = [
+            { id: 'b1', name: '버거플래닛' },
+            { id: 'b2', name: '피자유니버스' },
+            { id: 'b3', name: '치킨갤럭시' },
+            { id: 'b4', name: '샐러드스타' }
+        ];
+
+        const categories = [
+            { id: 'set', name: '세트 (Set)' },
+            { id: 'single', name: '단품 (Single)' },
+            { id: 'side', name: '사이드 (Side)' },
+            { id: 'drink', name: '음료 (Drink)' }
+        ];
+
+        let currentBrand = brands[0].id;
+        let currentCategory = categories[0].id;
+
+        // 클라우드 인증 및 데이터 동기화 시작
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch(e) {
+                console.error("인증 에러:", e);
+            }
+        }
+
+        // 인증 완료 후 실시간 리스너 작동
+        onAuthStateChanged(auth, user => {
+            if(user) {
+                dbUser = user;
+                startRealtimeSync();
+            }
+        });
+
+        // 실시간 클라우드 동기화 (다른 사람이 수정해도 즉시 반영)
+        function startRealtimeSync() {
+            if (!dbUser) return;
+            const menusRef = collection(db, 'artifacts', appId, 'public', 'data', 'menus');
+            
+            onSnapshot(menusRef, (snapshot) => {
+                menuData = [];
+                snapshot.forEach(document => {
+                    menuData.push({ id: document.id, ...document.data() });
+                });
+                
+                // 데이터가 비어있다면 샘플 데이터 주입
+                if(menuData.length === 0) {
+                    seedSampleData(menusRef);
+                } else {
+                    renderList();
+                }
+            }, (error) => {
+                console.error("데이터 동기화 실패:", error);
+            });
+        }
+
+        // --- 2. 헬퍼 함수 ---
+        function getFormattedDate() {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+        }
+
+        const getDummyImg = (text, bg, color) => `https://placehold.co/400x400/${bg}/${color}?text=${encodeURIComponent(text)}`;
+
+        // --- 3. 렌더링 함수 ---
+        function init() {
+            renderBrandTabs();
+            renderCategoryTabs();
+            renderModalSelects();
+            initAuth(); // 클라우드 인증 시작
+        }
+
+        function renderBrandTabs() {
+            const container = document.getElementById('brandTabs');
+            container.innerHTML = brands.map(brand => `
+                <button onclick="setBrand('${brand.id}')" 
+                    class="px-5 py-3 text-sm font-semibold rounded-t-xl transition-colors border-b-2 whitespace-nowrap flex items-center gap-2 ${
+                    currentBrand === brand.id 
+                        ? 'text-brand border-brand bg-rose-50' 
+                        : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50'
+                }">
+                    <span>${brand.name}</span>
+                    ${currentBrand === brand.id ? `<span onclick="event.stopPropagation(); renameBrand('${brand.id}')" class="p-1 rounded hover:bg-rose-200 text-brand transition flex items-center justify-center" title="브랜드명 수정"><i class="ph ph-pencil-simple"></i></span>` : ''}
+                </button>
+            `).join('');
+        }
+
+        function renderCategoryTabs() {
+            const container = document.getElementById('categoryTabs');
+            container.innerHTML = categories.map(cat => `
+                <button onclick="setCategory('${cat.id}')" 
+                    class="px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                    currentCategory === cat.id 
+                        ? 'bg-white text-slate-900 shadow-sm' 
+                        : 'text-slate-500 hover:text-slate-700'
+                }">
+                    ${cat.name}
+                </button>
+            `).join('');
+        }
+
+        function renderModalSelects() {
+            document.getElementById('modalBrand').innerHTML = brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+            document.getElementById('modalCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('menuList');
+            const emptyState = document.getElementById('emptyState');
+            
+            // 필터링 및 정렬
+            let filtered = menuData
+                .filter(m => m.brandId === currentBrand && m.categoryId === currentCategory)
+                .sort((a, b) => a.order - b.order);
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            emptyState.classList.remove('flex');
+
+            listContainer.innerHTML = filtered.map((item, index) => `
+                <div class="flex items-center px-6 py-4 hover:bg-slate-50 transition group bg-white">
+                    <!-- 순서 변경 -->
+                    <div class="w-20 flex flex-col items-center justify-center gap-1 text-slate-400">
+                        <button onclick="moveItem('${item.id}', -1)" class="p-1 hover:text-brand hover:bg-rose-50 rounded disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400" ${index === 0 ? 'disabled' : ''}>
+                            <i class="ph ph-caret-up text-lg"></i>
+                        </button>
+                        <span class="text-xs font-medium text-slate-500">${index + 1}</span>
+                        <button onclick="moveItem('${item.id}', 1)" class="p-1 hover:text-brand hover:bg-rose-50 rounded disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400" ${index === filtered.length - 1 ? 'disabled' : ''}>
+                            <i class="ph ph-caret-down text-lg"></i>
+                        </button>
+                    </div>
+
+                    <!-- 이미지 -->
+                    <div class="w-32 flex-shrink-0 pl-2">
+                        <div class="w-28 h-28 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 flex items-center justify-center">
+                            <img src="${item.img}" alt="${item.name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/400x400/eeeeee/999999?text=No+Image'">
+                        </div>
+                    </div>
+
+                    <!-- 메뉴 정보 -->
+                    <div class="flex-1 pr-6 pl-2">
+                        <h4 class="text-base font-bold text-slate-800 mb-1">${item.name}</h4>
+                        <p class="text-sm text-slate-500 leading-snug line-clamp-2">${item.desc}</p>
+                        <p class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                            <i class="ph ph-clock"></i> 최근 업데이트: ${item.updatedAt || '기록 없음'}
+                        </p>
+                    </div>
+
+                    <!-- 가격 -->
+                    <div class="w-32 text-right">
+                        <span class="text-lg font-bold text-slate-900">${Number(item.price).toLocaleString()}</span>
+                        <span class="text-sm text-slate-500 font-medium">원</span>
+                    </div>
+
+                    <!-- 액션 버튼 -->
+                    <div class="w-32 text-center ml-4 flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="downloadImage('${item.img}', '${item.name}')" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-blue-500 hover:text-white transition shadow-sm" title="이미지 다운로드">
+                            <i class="ph ph-download-simple text-lg"></i>
+                        </button>
+                        <button onclick="openModal('${item.id}')" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-brand hover:text-white transition shadow-sm" title="수정">
+                            <i class="ph ph-pencil-simple text-lg"></i>
+                        </button>
+                        <button onclick="deleteItem('${item.id}')" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-red-500 hover:text-white transition shadow-sm" title="삭제">
+                            <i class="ph ph-trash text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- 4. 인터랙션 및 클라우드 업데이트 함수 ---
+        window.setBrand = function(id) {
+            currentBrand = id;
+            renderBrandTabs();
+            renderList();
+        };
+
+        window.setCategory = function(id) {
+            currentCategory = id;
+            renderCategoryTabs();
+            renderList();
+        };
+
+        window.renameBrand = function(id) {
+            const brand = brands.find(b => b.id === id);
+            const newName = prompt("새로운 브랜드명을 입력하세요:", brand.name);
+            if (newName && newName.trim() !== "") {
+                brand.name = newName.trim();
+                renderBrandTabs(); 
+                renderModalSelects(); 
+                showToast("브랜드명이 변경되었습니다. (브랜드명은 기기에 로컬로 저장됩니다)");
+            }
+        };
+
+        // 순서 변경 (클라우드 반영)
+        window.moveItem = async function(id, direction) {
+            if (!dbUser) return;
+            let currentList = menuData.filter(m => m.brandId === currentBrand && m.categoryId === currentCategory).sort((a, b) => a.order - b.order);
+            const index = currentList.findIndex(m => m.id === id);
+            
+            if (index < 0) return;
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= currentList.length) return;
+
+            // 순서 스왑 계산
+            const item1 = currentList[index];
+            const item2 = currentList[targetIndex];
+            const tempOrder = item1.order;
+
+            // 클라우드 업데이트
+            const ref1 = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item1.id.toString());
+            const ref2 = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item2.id.toString());
+            
+            await setDoc(ref1, { order: item2.order }, { merge: true });
+            await setDoc(ref2, { order: tempOrder }, { merge: true });
+        };
+
+        // 아이템 삭제 (클라우드 반영)
+        window.deleteItem = async function(id) {
+            if (!dbUser) return;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', id.toString());
+            await deleteDoc(docRef);
+            showToast("메뉴가 삭제되었습니다.");
+        };
+
+        // 모달 열기 및 닫기
+        window.openModal = function(id = null) {
+            const modal = document.getElementById('menuModal');
+            const title = document.getElementById('modalTitle');
+            const form = document.getElementById('menuForm');
+            
+            form.reset();
+            document.getElementById('menuImageFile').value = '';
+            updateImagePreview('');
+
+            if (id) {
+                title.innerText = '메뉴 수정';
+                const item = menuData.find(m => m.id === id);
+                if(item) {
+                    document.getElementById('menuId').value = item.id;
+                    document.getElementById('menuName').value = item.name;
+                    document.getElementById('menuPrice').value = item.price;
+                    document.getElementById('menuDesc').value = item.desc;
+                    document.getElementById('modalBrand').value = item.brandId;
+                    document.getElementById('modalCategory').value = item.categoryId;
+                    document.getElementById('menuImage').value = item.img;
+                    updateImagePreview(item.img);
+                }
+            } else {
+                title.innerText = '신규 메뉴 등록';
+                document.getElementById('menuId').value = '';
+                document.getElementById('modalBrand').value = currentBrand;
+                document.getElementById('modalCategory').value = currentCategory;
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.children[1].classList.add('modal-enter-active'), 10);
+        };
+
+        window.closeModal = function() {
+            const modal = document.getElementById('menuModal');
+            modal.classList.add('hidden');
+            modal.children[1].classList.remove('modal-enter-active');
+        };
+
+        // 저장 로직 (클라우드 연동)
+        window.saveMenu = async function() {
+            if (!dbUser) return showToast("클라우드 서버에 연결 중입니다. 잠시 후 다시 시도해주세요.");
+
+            const id = document.getElementById('menuId').value;
+            const name = document.getElementById('menuName').value.trim();
+            const priceStr = document.getElementById('menuPrice').value;
+            const desc = document.getElementById('menuDesc').value.trim();
+            const brandId = document.getElementById('modalBrand').value;
+            const categoryId = document.getElementById('modalCategory').value;
+            let img = document.getElementById('menuImage').value.trim();
+            const now = getFormattedDate();
+
+            if (!name || !priceStr) return showToast("메뉴명과 가격은 필수입니다.");
+
+            const price = parseInt(priceStr, 10);
+
+            if(!img) {
+                const colorMap = {'b1':'E11D48', 'b2':'3B82F6', 'b3':'F59E0B', 'b4':'10B981'};
+                img = getDummyImg(name.substring(0, 5), colorMap[brandId] || '333', 'FFF');
+            }
+
+            let newOrder = 1;
+            let targetId = id ? id.toString() : Date.now().toString();
+
+            if (id) {
+                const item = menuData.find(m => m.id === id);
+                newOrder = item.order;
+                // 브랜드/카테고리 변경 시 맨 뒤로 이동
+                if(item.brandId !== brandId || item.categoryId !== categoryId) {
+                    let targetList = menuData.filter(m => m.brandId === brandId && m.categoryId === categoryId);
+                    newOrder = targetList.length > 0 ? Math.max(...targetList.map(m=>m.order)) + 1 : 1;
+                }
+                showToast("메뉴가 성공적으로 수정되었습니다.");
+            } else {
+                let targetList = menuData.filter(m => m.brandId === brandId && m.categoryId === categoryId);
+                newOrder = targetList.length > 0 ? Math.max(...targetList.map(m=>m.order)) + 1 : 1;
+                showToast("새 메뉴가 클라우드에 등록되었습니다.");
+            }
+
+            const itemData = {
+                brandId, categoryId, name, price, desc, img, order: newOrder, updatedAt: now
+            };
+
+            // Firestore에 저장
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', targetId);
+            await setDoc(docRef, itemData);
+
+            currentBrand = brandId;
+            currentCategory = categoryId;
+            renderBrandTabs();
+            renderCategoryTabs();
+            closeModal();
+        };
+
+        window.downloadImage = async function(url, name) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = `${name.replace(/[^a-z0-9가-힣]/gi, '_')}_이미지.jpg`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(blobUrl);
+                showToast("이미지 다운로드가 완료되었습니다.");
+            } catch (error) {
+                window.open(url, '_blank');
+                showToast("새 창에서 이미지가 열렸습니다. 우클릭하여 저장해주세요.");
+            }
+        };
+
+        window.showToast = function(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.style.transform = 'translateY(0)';
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.transform = 'translateY(20px)';
+                toast.style.opacity = '0';
+            }, 3000);
+        };
+
+        // 이미지 파일 업로드 이벤트
+        document.getElementById('menuImageFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                showToast("이미지 용량은 5MB를 초과할 수 없습니다.");
+                this.value = ''; return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                document.getElementById('menuImage').value = event.target.result;
+                updateImagePreview(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('menuImage').addEventListener('input', function(e) {
+            updateImagePreview(e.target.value);
+        });
+
+        function updateImagePreview(url) {
+            const preview = document.getElementById('imagePreview');
+            const placeholder = document.getElementById('imagePlaceholder');
+            const overlay = document.getElementById('imageOverlay');
+            if (url && url.trim() !== '') {
+                preview.src = url;
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                overlay.classList.remove('hidden');
+            } else {
+                preview.src = '';
+                preview.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // 초기 데이터 주입 함수 (클라우드가 완전히 비어있을 때만 실행)
+        async function seedSampleData(menusRef) {
+            const sampleData = [
+                { id: '101', brandId: 'b1', categoryId: 'set', name: '시그니처 플래닛 버거 세트', desc: '육즙 가득 100% 소고기 패티와 특제 소스', price: 9500, img: getDummyImg('Burger', 'E11D48', 'FFF'), order: 1, updatedAt: getFormattedDate() },
+                { id: '102', brandId: 'b1', categoryId: 'side', name: '케이준 프렌치 프라이', desc: '매콤 짭짤한 케이준 시즈닝 감자튀김', price: 2500, img: getDummyImg('Fries', '10B981', 'FFF'), order: 1, updatedAt: getFormattedDate() },
+                { id: '103', brandId: 'b2', categoryId: 'set', name: '패밀리 파티 세트', desc: '프리미엄 피자 (L) + 오븐 스파게티 + 핫윙 4조각', price: 34900, img: getDummyImg('Pizza Set', '3B82F6', 'FFF'), order: 1, updatedAt: getFormattedDate() },
+            ];
+            for (const item of sampleData) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item.id);
+                await setDoc(docRef, item);
+            }
+        }
+
+        // 앱 설치 (PWA / 바로가기) 로직
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+
+        document.getElementById('installBtn').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                // 브라우저가 제공하는 PWA 공식 설치 프롬프트 띄우기
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    deferredPrompt = null;
+                }
+            } else {
+                // 수동 설치 안내 모달 띄우기
+                document.getElementById('installGuideModal').classList.remove('hidden');
+            }
+        });
+
+        window.closeInstallGuide = function() {
+            document.getElementById('installGuideModal').classList.add('hidden');
+        };
+
+        // 바탕화면 앱으로 실행 중인지 확인하여 설치 버튼 자동 숨기기
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+            document.getElementById('installBtn').classList.add('hidden');
+        }
+
+        // 앱 시작
+        window.onload = init;
+
+    </script>
+</body>
+</html>
