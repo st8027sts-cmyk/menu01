@@ -256,16 +256,32 @@
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase 초기화 설정
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // ==========================================
+        // ⚠️ 실제 배포 환경 설정
+        // 여기에 본인의 Firebase 설정값을 넣으면 다른 사람과 함께 볼 수 있는 클라우드 모드가 켜집니다.
+        // 비워두면 자동으로 '내 브라우저'에만 임시 저장되는 오프라인 모드로 완벽하게 동작합니다.
+        // ==========================================
+        const myFirebaseConfig = {
+            // apiKey: "AIzaSy...",
+            // authDomain: "...",
+            // projectId: "...",
+        };
+
+        // Firebase 초기화 설정 (자동 환경 파악)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        const useCloud = Object.keys(firebaseConfig).length > 0 && firebaseConfig.apiKey !== undefined;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'franchise-menu-admin';
+
+        let app, auth, db;
+        if (useCloud) {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        }
 
         // --- 1. 기초 데이터 및 상태 ---
         let dbUser = null;
-        let menuData = []; // 실시간 클라우드에서 데이터를 불러옵니다.
+        let menuData = []; // 실시간 클라우드 또는 로컬에서 데이터를 불러옵니다.
         
         const brands = [
             { id: 'b1', name: '버거플래닛' },
@@ -286,6 +302,11 @@
 
         // 클라우드 인증 및 데이터 동기화 시작
         async function initAuth() {
+            if (!useCloud) {
+                // 클라우드를 안 쓰면 바로 로컬 동기화 시작
+                startRealtimeSync();
+                return;
+            }
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -297,34 +318,39 @@
             }
         }
 
-        // 인증 완료 후 실시간 리스너 작동
-        onAuthStateChanged(auth, user => {
-            if(user) {
-                dbUser = user;
-                startRealtimeSync();
-            }
-        });
-
-        // 실시간 클라우드 동기화 (다른 사람이 수정해도 즉시 반영)
-        function startRealtimeSync() {
-            if (!dbUser) return;
-            const menusRef = collection(db, 'artifacts', appId, 'public', 'data', 'menus');
-            
-            onSnapshot(menusRef, (snapshot) => {
-                menuData = [];
-                snapshot.forEach(document => {
-                    menuData.push({ id: document.id, ...document.data() });
-                });
-                
-                // 데이터가 비어있다면 샘플 데이터 주입
-                if(menuData.length === 0) {
-                    seedSampleData(menusRef);
-                } else {
-                    renderList();
+        // 인증 완료 후 실시간 리스너 작동 (클라우드 모드 전용)
+        if (useCloud) {
+            onAuthStateChanged(auth, user => {
+                if(user) {
+                    dbUser = user;
+                    startRealtimeSync();
                 }
-            }, (error) => {
-                console.error("데이터 동기화 실패:", error);
             });
+        }
+
+        // 실시간 동기화 (클라우드 vs 로컬 분기)
+        function startRealtimeSync() {
+            if (useCloud && dbUser) {
+                const menusRef = collection(db, 'artifacts', appId, 'public', 'data', 'menus');
+                onSnapshot(menusRef, (snapshot) => {
+                    menuData = [];
+                    snapshot.forEach(document => {
+                        menuData.push({ id: document.id, ...document.data() });
+                    });
+                    
+                    if(menuData.length === 0) seedSampleData(menusRef);
+                    else renderList();
+                }, (error) => console.error("데이터 동기화 실패:", error));
+            } else if (!useCloud) {
+                // 로컬 스토리지 데이터 불러오기
+                const localData = localStorage.getItem('menuAdminData');
+                if (localData) {
+                    menuData = JSON.parse(localData);
+                    renderList();
+                } else {
+                    seedSampleData(null); // 샘플 생성
+                }
+            }
         }
 
         // --- 2. 헬퍼 함수 ---
@@ -478,7 +504,7 @@
 
         // 순서 변경 (클라우드 반영)
         window.moveItem = async function(id, direction) {
-            if (!dbUser) return;
+            if (useCloud && !dbUser) return;
             let currentList = menuData.filter(m => m.brandId === currentBrand && m.categoryId === currentCategory).sort((a, b) => a.order - b.order);
             const index = currentList.findIndex(m => m.id === id);
             
@@ -490,20 +516,33 @@
             const item1 = currentList[index];
             const item2 = currentList[targetIndex];
             const tempOrder = item1.order;
-
-            // 클라우드 업데이트
-            const ref1 = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item1.id.toString());
-            const ref2 = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item2.id.toString());
             
-            await setDoc(ref1, { order: item2.order }, { merge: true });
-            await setDoc(ref2, { order: tempOrder }, { merge: true });
+            item1.order = item2.order;
+            item2.order = tempOrder;
+
+            if (useCloud) {
+                const ref1 = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item1.id.toString());
+                const ref2 = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item2.id.toString());
+                await setDoc(ref1, { order: item1.order }, { merge: true });
+                await setDoc(ref2, { order: item2.order }, { merge: true });
+            } else {
+                localStorage.setItem('menuAdminData', JSON.stringify(menuData));
+                renderList();
+            }
         };
 
         // 아이템 삭제 (클라우드 반영)
         window.deleteItem = async function(id) {
-            if (!dbUser) return;
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', id.toString());
-            await deleteDoc(docRef);
+            if (useCloud && !dbUser) return;
+            
+            if (useCloud) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', id.toString());
+                await deleteDoc(docRef);
+            } else {
+                menuData = menuData.filter(m => m.id !== id.toString());
+                localStorage.setItem('menuAdminData', JSON.stringify(menuData));
+                renderList();
+            }
             showToast("메뉴가 삭제되었습니다.");
         };
 
@@ -549,7 +588,7 @@
 
         // 저장 로직 (클라우드 연동)
         window.saveMenu = async function() {
-            if (!dbUser) return showToast("클라우드 서버에 연결 중입니다. 잠시 후 다시 시도해주세요.");
+            if (useCloud && !dbUser) return showToast("클라우드 서버에 연결 중입니다. 잠시 후 다시 시도해주세요.");
 
             const id = document.getElementById('menuId').value;
             const name = document.getElementById('menuName').value.trim();
@@ -575,7 +614,6 @@
             if (id) {
                 const item = menuData.find(m => m.id === id);
                 newOrder = item.order;
-                // 브랜드/카테고리 변경 시 맨 뒤로 이동
                 if(item.brandId !== brandId || item.categoryId !== categoryId) {
                     let targetList = menuData.filter(m => m.brandId === brandId && m.categoryId === categoryId);
                     newOrder = targetList.length > 0 ? Math.max(...targetList.map(m=>m.order)) + 1 : 1;
@@ -584,21 +622,32 @@
             } else {
                 let targetList = menuData.filter(m => m.brandId === brandId && m.categoryId === categoryId);
                 newOrder = targetList.length > 0 ? Math.max(...targetList.map(m=>m.order)) + 1 : 1;
-                showToast("새 메뉴가 클라우드에 등록되었습니다.");
+                showToast("새 메뉴가 등록되었습니다.");
             }
 
             const itemData = {
-                brandId, categoryId, name, price, desc, img, order: newOrder, updatedAt: now
+                id: targetId, brandId, categoryId, name, price, desc, img, order: newOrder, updatedAt: now
             };
 
-            // Firestore에 저장
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', targetId);
-            await setDoc(docRef, itemData);
+            if (useCloud) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', targetId);
+                await setDoc(docRef, itemData);
+            } else {
+                const existingIndex = menuData.findIndex(m => m.id === targetId);
+                if (existingIndex >= 0) {
+                    menuData[existingIndex] = itemData;
+                } else {
+                    menuData.push(itemData);
+                }
+                localStorage.setItem('menuAdminData', JSON.stringify(menuData));
+            }
 
             currentBrand = brandId;
             currentCategory = categoryId;
             renderBrandTabs();
             renderCategoryTabs();
+            
+            if(!useCloud) renderList(); // 로컬 모드일 때 화면 갱신
             closeModal();
         };
 
@@ -676,9 +725,16 @@
                 { id: '102', brandId: 'b1', categoryId: 'side', name: '케이준 프렌치 프라이', desc: '매콤 짭짤한 케이준 시즈닝 감자튀김', price: 2500, img: getDummyImg('Fries', '10B981', 'FFF'), order: 1, updatedAt: getFormattedDate() },
                 { id: '103', brandId: 'b2', categoryId: 'set', name: '패밀리 파티 세트', desc: '프리미엄 피자 (L) + 오븐 스파게티 + 핫윙 4조각', price: 34900, img: getDummyImg('Pizza Set', '3B82F6', 'FFF'), order: 1, updatedAt: getFormattedDate() },
             ];
-            for (const item of sampleData) {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item.id);
-                await setDoc(docRef, item);
+            
+            if (useCloud) {
+                for (const item of sampleData) {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', item.id);
+                    await setDoc(docRef, item);
+                }
+            } else {
+                menuData = sampleData;
+                localStorage.setItem('menuAdminData', JSON.stringify(menuData));
+                renderList();
             }
         }
 
